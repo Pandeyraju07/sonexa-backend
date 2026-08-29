@@ -1,5 +1,6 @@
 package com.sonexa.backend.model.dto;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -44,13 +45,73 @@ public final class CatalogDtos {
 
     public record MoodDto(String id, String name, String iconKey, String colorHex) {}
 
-    public record PodcastDto(
-            String id, String title, String host, String description, String coverUrl, String category
+    public record PodcastChapterDto(
+            String title,
+            long startTimeSeconds,
+            long endTimeSeconds
     ) {}
 
+    public record PodcastLanguageDto(
+            String code,
+            String name,
+            String nativeName,
+            String coverUrl,
+            int showCount
+    ) {}
+
+    public record PodcastCategoryDto(
+            String id,
+            String name,
+            String icon,
+            String colorHex,
+            String gradientFrom,
+            String gradientTo
+    ) {}
+
+    public record PodcastDto(
+            String id,
+            String title,
+            String host,
+            String description,
+            String coverUrl,
+            String category,
+            String language,
+            String followerCount,
+            int episodeCount,
+            boolean isFollowed
+    ) {
+        public PodcastDto(String id, String title, String host, String description, String coverUrl, String category) {
+            this(id, title, host, description, coverUrl, category, "Hindi", "125K", 25, false);
+        }
+    }
+
     public record PodcastEpisodeDto(
-            String id, String title, String description, String durationLabel,
-            String audioUrl, int episodeNumber
+            String id,
+            String podcastId,
+            String title,
+            String description,
+            String durationLabel,
+            long durationMs,
+            String audioUrl,
+            String coverUrl,
+            int episodeNumber,
+            String publishedAt,
+            int progressPercent,
+            List<PodcastChapterDto> chapters
+    ) {
+        public PodcastEpisodeDto(String id, String title, String description, String durationLabel, String audioUrl, int episodeNumber) {
+            this(id, "", title, description, durationLabel, 1800000L, audioUrl, "", episodeNumber, "Recently added", 0, Collections.emptyList());
+        }
+    }
+
+    public record PodcastHomeResponse(
+            boolean success,
+            List<PodcastEpisodeDto> continueListening,
+            List<PodcastLanguageDto> languages,
+            List<PodcastDto> trendingPodcasts,
+            List<PodcastDto> madeForYou,
+            List<PodcastDto> popularShows,
+            List<PodcastCategoryDto> categories
     ) {}
 
     public record NotificationDto(
