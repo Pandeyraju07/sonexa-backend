@@ -23,10 +23,14 @@ public class PodcastController {
 
     @GetMapping
     public PodcastListResponse list(
-            @RequestParam(value = "category", defaultValue = "technology") String category,
+            @RequestParam(value = "category", defaultValue = "hindi") String category,
             @RequestParam(value = "limit", defaultValue = "20") int limit
     ) {
-        List<PodcastDto> live = podcastClient.searchPodcasts(category, limit);
+        String query = category;
+        if ("hindi".equalsIgnoreCase(category) || "hindi (हिंदी)".equalsIgnoreCase(category)) {
+            query = "the ranveer show hindi audio pitara hindi podcast";
+        }
+        List<PodcastDto> live = podcastClient.searchPodcasts(query, limit);
         if (!live.isEmpty()) {
             return new PodcastListResponse(true, live);
         }
@@ -36,7 +40,9 @@ public class PodcastController {
     @GetMapping("/categories")
     public List<Map<String, String>> categories() {
         return List.of(
+                Map.of("id", "hindi", "name", "Hindi (हिंदी)", "color", "#F97316"),
                 Map.of("id", "all", "name", "All", "color", "#7C3AED"),
+                Map.of("id", "hindi_stories", "name", "Hindi Stories", "color", "#E11D48"),
                 Map.of("id", "technology", "name", "Technology", "color", "#2563EB"),
                 Map.of("id", "business", "name", "Business", "color", "#059669"),
                 Map.of("id", "comedy", "name", "Comedy", "color", "#D97706"),
