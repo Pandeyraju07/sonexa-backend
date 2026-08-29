@@ -239,4 +239,93 @@ public final class CatalogDtos {
     public record AiSignatureRequest(String mood, String prompt, String detectedEmotion) {}
 
     public record AiChatRequest(String message) {}
+
+    // LIVE EVENTS DTOS
+    public record EventSetlistTrackDto(
+            String id,
+            String title,
+            String artist,
+            String audioUrl,
+            String coverUrl,
+            String durationLabel,
+            long durationMs
+    ) {}
+
+    public record EventTicketTierDto(
+            String id,
+            String name,
+            String price,
+            String description,
+            List<String> perks,
+            boolean isAvailable
+    ) {}
+
+    public record LiveEventDto(
+            String id,
+            String title,
+            String artistName,
+            String artistImageUrl,
+            String bannerUrl,
+            String venue,
+            String city,
+            String date,
+            String time,
+            String priceStarting,
+            String status, // "SELLING_FAST", "LIVE_NOW", "UPCOMING", "SOLD_OUT"
+            String category, // "Stadium Tour", "Festival", "Acoustic", "Club"
+            String bookingUrl,
+            boolean isReminderSet,
+            List<String> lineup,
+            List<EventSetlistTrackDto> setlist
+    ) {}
+
+    public record LiveEventsFeedResponse(
+            boolean success,
+            String title,
+            List<String> cities,
+            List<String> categories,
+            List<LiveEventDto> featuredTours,
+            List<LiveEventDto> events
+    ) {}
+
+    public record LiveEventDetailResponse(
+            boolean success,
+            LiveEventDto event,
+            List<EventTicketTierDto> ticketTiers,
+            List<LiveEventDto> nearbyEvents
+    ) {}
+
+    // HOME OF I-POP DTOS
+    public record IPopArtistDto(
+            String id,
+            String name,
+            String imageUrl,
+            String followers,
+            String topSongTitle,
+            boolean isVerified
+    ) {}
+
+    public record IPopPlaylistDto(
+            String id,
+            String title,
+            String description,
+            String coverUrl,
+            String badge,
+            int trackCount,
+            List<TrackDto> tracks
+    ) {}
+
+    public record IPopHomeResponse(
+            boolean success,
+            String title,
+            String subtitle,
+            String spotlightBannerUrl,
+            String spotlightTitle,
+            String spotlightSubtitle,
+            List<String> subgenres,
+            List<TrackDto> trendingTracks,
+            List<IPopPlaylistDto> featuredPlaylists,
+            List<IPopArtistDto> spotlightArtists,
+            List<TrackDto> newReleases
+    ) {}
 }
