@@ -1,0 +1,10 @@
+# Copy to application-local.properties and fill your SMTP sender account.
+# Recipient email is always dynamic (whatever the user types in the app).
+
+sonexa.mail.enabled=true
+sonexa.mail.require-delivery=false
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=your.sender@gmail.com
+spring.mail.password=your-16-char-app-password
