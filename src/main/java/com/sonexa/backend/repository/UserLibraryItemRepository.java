@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UserLibraryItemRepository extends JpaRepository<UserLibraryItem, Long> {
     List<UserLibraryItem> findByUserKeyAndLikedTrue(String userKey);
     Optional<UserLibraryItem> findByUserKeyAndTrackPublicId(String userKey, String trackPublicId);
+    List<UserLibraryItem> findByUserKeyOrderByLastPlayedAtDesc(String userKey);
+    List<UserLibraryItem> findByUserKeyOrderByUpdatedAtDesc(String userKey);
 }

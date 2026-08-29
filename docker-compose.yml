@@ -1,0 +1,46 @@
+﻿# TuneFlow Infrastructure Stack
+version: '3.8'
+
+services:
+  mysqldb:
+    image: mysql:8.0
+    container_name: tuneflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tuneflow_db
+      MYSQL_USER: tuneflow_user
+      MYSQL_PASSWORD: tuneflow_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: tuneflow-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: .
+    container_name: tuneflow-backend
+    restart: unless-stopped
+    depends_on:
+      - mysqldb
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/tuneflow_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: tuneflow_user
+      SPRING_DATASOURCE_PASSWORD: tuneflow_password
+      AUDIUS_API_URL: https://discoveryprovider.audius.co/v1
+      JWT_SECRET: tuneflow_super_secret_jwt_key_2026_production_grade_32_bytes_long!
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql_data:
+  redis_data:

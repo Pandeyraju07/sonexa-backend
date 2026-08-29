@@ -21,6 +21,8 @@ public class UserLibraryItem {
 
     private boolean liked;
     private boolean downloaded;
+    private LocalDateTime lastPlayedAt;
+    private Integer playCount = 0;
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     public UserLibraryItem() {}
@@ -41,6 +43,10 @@ public class UserLibraryItem {
     public void setLiked(boolean liked) { this.liked = liked; }
     public boolean isDownloaded() { return downloaded; }
     public void setDownloaded(boolean downloaded) { this.downloaded = downloaded; }
+    public LocalDateTime getLastPlayedAt() { return lastPlayedAt; }
+    public void setLastPlayedAt(LocalDateTime lastPlayedAt) { this.lastPlayedAt = lastPlayedAt; }
+    public Integer getPlayCount() { return playCount != null ? playCount : 0; }
+    public void setPlayCount(Integer playCount) { this.playCount = playCount; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
