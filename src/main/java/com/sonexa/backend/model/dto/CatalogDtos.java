@@ -278,7 +278,7 @@ public final class CatalogDtos {
 
     public record ToggleLikeRequest(String trackId) {}
 
-    public record UpdateProfileRequest(String name, String profilePicUrl, String bio) {}
+    public record UpdateProfileRequest(String name, String profilePicUrl, String bio, String handle) {}
 
     public record UpdateSettingsRequest(Map<String, Object> settings) {}
 

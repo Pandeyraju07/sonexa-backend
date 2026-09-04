@@ -33,8 +33,8 @@ public class EmailServiceImpl implements EmailService {
     public boolean sendOtpEmail(String toEmail, String otpCode, String purpose) {
         String recipient = toEmail == null ? "" : toEmail.trim().toLowerCase();
         String subject = "FORGOT_PASSWORD".equalsIgnoreCase(purpose)
-                ? "Sonexa password reset OTP (valid 1 minute)"
-                : "Sonexa verification OTP (valid 1 minute)";
+                ? "Zynera Password Reset Code (valid 1 minute)"
+                : "Zynera Account Verification Code (valid 1 minute)";
         String htmlContent = buildHtmlEmailContent(otpCode, purpose, recipient);
 
         log.info("event=SENDING_GMAIL_OTP to={} purpose={}", recipient, purpose);
@@ -63,7 +63,7 @@ public class EmailServiceImpl implements EmailService {
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(new InternetAddress(senderUser, "Sonexa"));
+            helper.setFrom(new InternetAddress(senderUser, "Zynera Music"));
             helper.setTo(recipient);
             helper.setReplyTo(senderUser);
             helper.setSubject(subject);
@@ -102,13 +102,13 @@ public class EmailServiceImpl implements EmailService {
                 </head>
                 <body>
                     <div class="container">
-                        <div class="logo">SONEXA</div>
+                        <div class="logo" style="font-size: 26px; font-weight: 900; letter-spacing: 4px; color: #1ed760; text-align: center; margin-bottom: 20px;">ZYNERA</div>
                         <h2 style="text-align: center;">%s</h2>
                         <p>Hi, this code was requested for <strong>%s</strong>.</p>
                         <p>Use the OTP below to continue. Valid for <strong>1 minute</strong>.</p>
                         <div class="otp-box">%s</div>
                         <p style="color: #aaaaaa; font-size: 13px;">If you did not request this code, ignore this email.</p>
-                        <div class="footer">&copy; 2026 Sonexa Music Inc. All rights reserved.</div>
+                        <div class="footer">&copy; 2026 Zynera Music Inc. All rights reserved.</div>
                     </div>
                 </body>
                 </html>
