@@ -6,7 +6,8 @@ import java.util.List;
 
 public interface TrackRepository extends JpaRepository<Track, Long> {
     List<Track> findByTrendingTrue();
-    List<Track> findAllByOrderByIdDesc();
+    List<Track> findTop50ByOrderByIdDesc();
+    List<Track> findTop20ByOrderByIdDesc();
     List<Track> findByAlbumId(Long albumId);
     List<Track> findByArtistId(Long artistId);
     List<Track> findByTitleContainingIgnoreCaseOrArtistNameContainingIgnoreCase(String title, String artist);

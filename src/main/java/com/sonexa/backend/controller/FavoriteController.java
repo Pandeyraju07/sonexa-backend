@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class FavoriteController {
 
     private final UserLibraryItemRepository libraryItemRepository;

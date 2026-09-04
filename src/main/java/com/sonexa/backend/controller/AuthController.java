@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@CrossOrigin(origins = "*")
 public class AuthController {
 
     @Autowired
@@ -21,10 +20,8 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponseData>> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponseData data = authService.register(request);
-        String msg = Boolean.TRUE.equals(data.emailDelivered())
-                ? "User registered successfully. Verification OTP sent to Gmail."
-                : "User registered successfully. OTP: " + data.otp();
-        return ResponseEntity.ok(ResponseUtil.success(msg, data));
+        return ResponseEntity.ok(ResponseUtil.success(
+                "User registered successfully. Verification OTP sent to your email.", data));
     }
 
     // 2. LOGIN
@@ -45,10 +42,7 @@ public class AuthController {
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<OtpSendData>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
         OtpSendData data = authService.sendOtp(request);
-        String msg = data.emailDelivered()
-                ? "Verification OTP sent successfully to " + request.email()
-                : "OTP generated (email not configured). Use otp from response.";
-        return ResponseEntity.ok(ResponseUtil.success(msg, data));
+        return ResponseEntity.ok(ResponseUtil.success("Verification OTP sent successfully", data));
     }
 
     // 4. VERIFY OTP
@@ -95,15 +89,15 @@ public class AuthController {
 
     // 10. LOGOUT
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestParam(value = "email", required = false) String email) {
-        authService.logout(email);
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        authService.logout(null);
         return ResponseEntity.ok(ResponseUtil.success("Logged out successfully", null));
     }
 
-    // 11. DELETE ACCOUNT
+    // 11. DELETE ACCOUNT — authenticated user only; never trust client userId
     @DeleteMapping("/delete-account")
-    public ResponseEntity<ApiResponse<Void>> deleteAccount(@RequestParam(value = "userId", defaultValue = "") String userId) {
-        authService.deleteAccount(userId);
+    public ResponseEntity<ApiResponse<Void>> deleteAccount() {
+        authService.deleteAccount(null);
         return ResponseEntity.ok(ResponseUtil.success("Account deleted successfully", null));
     }
 }

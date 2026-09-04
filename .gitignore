@@ -5,5 +5,7 @@ build/
 *.iml
 application-local.properties
 src/main/resources/application-local.properties
-*.log
+.env
+.env.*
+!.env.example
 .DS_Store

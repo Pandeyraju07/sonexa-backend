@@ -1,5 +1,7 @@
 package com.sonexa.backend.service;
 
+import com.sonexa.backend.constant.ErrorCode;
+import com.sonexa.backend.exception.BusinessException;
 import com.sonexa.backend.model.dto.CatalogDtos.*;
 import com.sonexa.backend.model.entity.*;
 import com.sonexa.backend.repository.*;
@@ -74,6 +76,24 @@ public class CatalogService {
         return "guest";
     }
 
+    public String requireAuthenticatedUserKey() {
+        String key = currentUserKey();
+        if ("guest".equals(key)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Authentication required");
+        }
+        return key;
+    }
+
+    private Playlist requireOwnedPlaylist(String id) {
+        Long dbId = parseId(id, "pl_");
+        if (dbId == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Playlist not found");
+        }
+        String userKey = requireAuthenticatedUserKey();
+        return playlistRepository.findByIdAndUserKey(dbId, userKey)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Playlist not found"));
+    }
+
     private Set<String> likedIds(String userKey) {
         return libraryItemRepository.findByUserKeyAndLikedTrue(userKey).stream()
                 .map(UserLibraryItem::getTrackPublicId)
@@ -130,7 +150,7 @@ public class CatalogService {
         String userKey = currentUserKey();
         Set<String> liked = likedIds(userKey);
         // Newest first so admin uploads appear immediately
-        List<Track> newest = trackRepository.findAllByOrderByIdDesc();
+        List<Track> newest = trackRepository.findTop50ByOrderByIdDesc();
         List<TrackDto> continueListening = newest.stream().limit(8).map(t -> toTrackDto(t, liked)).toList();
         List<TrackDto> trending = trackRepository.findByTrendingTrue().stream()
                 .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
@@ -156,7 +176,8 @@ public class CatalogService {
         List<TrackDto> tracks = trackRepository.findByTrendingTrue().stream()
                 .map(t -> toTrackDto(t, liked)).toList();
         if (tracks.isEmpty()) {
-            tracks = trackRepository.findAll().stream().map(t -> toTrackDto(t, liked)).toList();
+            tracks = trackRepository.findTop20ByOrderByIdDesc().stream()
+                    .map(t -> toTrackDto(t, liked)).toList();
         }
         return new TrendingResponse(true, tracks);
     }
@@ -204,9 +225,6 @@ public class CatalogService {
 
         Long dbId = parseId(id, "tr_");
         Track track = dbId != null ? trackRepository.findById(dbId).orElse(null) : null;
-        if (track == null && !trackRepository.findAll().isEmpty()) {
-            track = trackRepository.findAll().get(0);
-        }
         if (track == null) {
             return new TrackDetailResponse(false, null);
         }
@@ -216,46 +234,162 @@ public class CatalogService {
     public AlbumDetailResponse albumDetail(String id) {
         Long dbId = parseId(id, "alb_");
         Album album = dbId != null ? albumRepository.findById(dbId).orElse(null) : null;
-        if (album == null && !albumRepository.findAll().isEmpty()) {
-            album = albumRepository.findAll().get(0);
-        }
         if (album == null) {
             return new AlbumDetailResponse(false, null, List.of());
         }
         Set<String> liked = likedIds(currentUserKey());
         List<TrackDto> tracks = trackRepository.findByAlbumId(album.getId()).stream()
                 .map(t -> toTrackDto(t, liked)).toList();
-        if (tracks.isEmpty()) {
-            tracks = trackRepository.findAll().stream().limit(5).map(t -> toTrackDto(t, liked)).toList();
-        }
         return new AlbumDetailResponse(true, toAlbumDto(album), tracks);
     }
 
     public PlaylistDetailResponse playlistDetail(String id) {
         Long dbId = parseId(id, "pl_");
         Playlist playlist = dbId != null ? playlistRepository.findById(dbId).orElse(null) : null;
-        if (playlist == null && !playlistRepository.findAll().isEmpty()) {
-            playlist = playlistRepository.findAll().get(0);
-        }
         if (playlist == null) {
             return new PlaylistDetailResponse(false, null, List.of());
         }
-        Set<String> liked = likedIds(currentUserKey());
-        List<TrackDto> tracks = playlistTrackRepository.findByPlaylistIdOrderBySortOrderAsc(playlist.getId())
-                .stream()
-                .map(pt -> trackRepository.findById(pt.getTrackId()).orElse(null))
-                .filter(Objects::nonNull)
-                .map(t -> toTrackDto(t, liked))
-                .toList();
+        String userKey = currentUserKey();
+        if (playlist.isPrivate() && (playlist.getUserKey() == null || !playlist.getUserKey().equals(userKey))) {
+            return new PlaylistDetailResponse(false, null, List.of());
+        }
+        Set<String> liked = likedIds(userKey);
+        List<PlaylistTrack> pts = playlistTrackRepository.findByPlaylistIdOrderBySortOrderAsc(playlist.getId());
+        List<TrackDto> tracks = new ArrayList<>();
+        for (PlaylistTrack pt : pts) {
+            if (pt.getTrackId() != null) {
+                Track t = trackRepository.findById(pt.getTrackId()).orElse(null);
+                if (t != null) {
+                    tracks.add(toTrackDto(t, liked));
+                    continue;
+                }
+            }
+            if (pt.getTrackPublicId() != null && !pt.getTrackPublicId().isBlank()) {
+                boolean isLiked = liked.contains(pt.getTrackPublicId());
+                tracks.add(new TrackDto(
+                        pt.getTrackPublicId(),
+                        pt.getTrackTitle() != null ? pt.getTrackTitle() : "Track",
+                        pt.getTrackArtist() != null ? pt.getTrackArtist() : "Artist",
+                        pt.getTrackAlbum() != null ? pt.getTrackAlbum() : "",
+                        pt.getDurationMs() != null ? pt.getDurationMs() : 0L,
+                        pt.getAudioUrl() != null ? pt.getAudioUrl() : "",
+                        pt.getCoverUrl() != null ? pt.getCoverUrl() : "",
+                        "10K", isLiked
+                ));
+            }
+        }
+        if (tracks.isEmpty() && playlist.isMadeForYou()) {
+            tracks = trackRepository.findAll().stream().limit(10).map(t -> toTrackDto(t, liked)).toList();
+        }
         return new PlaylistDetailResponse(true, toPlaylistDto(playlist), tracks);
+    }
+
+    public UserPlaylistsResponse getUserPlaylists() {
+        String userKey = currentUserKey();
+        List<Playlist> userPlaylists = playlistRepository.findByUserKeyOrderByIdDesc(userKey);
+        List<PlaylistDto> dtos = new ArrayList<>(userPlaylists.stream().map(this::toPlaylistDto).toList());
+        return new UserPlaylistsResponse(true, dtos);
+    }
+
+    @Transactional
+    public PlaylistDto createPlaylist(CreatePlaylistRequest request) {
+        String userKey = requireAuthenticatedUserKey();
+        String title = (request != null && request.title() != null && !request.title().isBlank())
+                ? request.title().trim() : "My Playlist";
+        String description = (request != null && request.description() != null) ? request.description().trim() : "";
+        String coverUrl = (request != null && request.coverUrl() != null && !request.coverUrl().isBlank())
+                ? request.coverUrl().trim()
+                : "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500";
+
+        String creatorName = userRepository.findByEmail(userKey)
+                .map(User::getName)
+                .filter(n -> !n.isBlank())
+                .orElseGet(() -> userKey.contains("@") ? userKey.split("@")[0] : "Listener");
+
+        Playlist playlist = new Playlist(title, description, coverUrl, userKey, creatorName);
+        if (request != null && request.isPrivate() != null) {
+            playlist.setPrivate(request.isPrivate());
+        }
+        playlist = playlistRepository.save(playlist);
+        return toPlaylistDto(playlist);
+    }
+
+    @Transactional
+    public PlaylistDto updatePlaylist(String id, UpdatePlaylistRequest request) {
+        Playlist playlist = requireOwnedPlaylist(id);
+
+        if (request != null) {
+            if (request.title() != null && !request.title().isBlank()) playlist.setTitle(request.title().trim());
+            if (request.description() != null) playlist.setSubtitle(request.description().trim());
+            if (request.coverUrl() != null && !request.coverUrl().isBlank()) playlist.setCoverUrl(request.coverUrl().trim());
+            if (request.isPrivate() != null) playlist.setPrivate(request.isPrivate());
+            if (request.isPinned() != null) playlist.setPinned(request.isPinned());
+        }
+        playlist.setUpdatedAt(LocalDateTime.now());
+        playlist = playlistRepository.save(playlist);
+        return toPlaylistDto(playlist);
+    }
+
+    @Transactional
+    public SimpleSuccessResponse deletePlaylist(String id) {
+        Playlist playlist = requireOwnedPlaylist(id);
+        playlistTrackRepository.deleteByPlaylistId(playlist.getId());
+        playlistRepository.deleteById(playlist.getId());
+        return new SimpleSuccessResponse(true, "Playlist deleted successfully");
+    }
+
+    @Transactional
+    public SimpleSuccessResponse addTrackToPlaylist(String id, AddTrackToPlaylistRequest request) {
+        Playlist playlist = requireOwnedPlaylist(id);
+        Long dbId = playlist.getId();
+        if (request == null || request.trackId() == null || request.trackId().isBlank()) {
+            return new SimpleSuccessResponse(false, "trackId is required");
+        }
+
+        String trackPublicId = request.trackId();
+        if (playlistTrackRepository.findByPlaylistIdAndTrackPublicId(dbId, trackPublicId).isPresent()) {
+            return new SimpleSuccessResponse(true, "Track already in playlist");
+        }
+
+        int nextSortOrder = (int) playlistTrackRepository.countByPlaylistId(dbId) + 1;
+        Long nativeTrackId = parseId(trackPublicId, "tr_");
+        PlaylistTrack pt;
+        if (nativeTrackId != null && trackRepository.existsById(nativeTrackId)) {
+            pt = new PlaylistTrack(dbId, nativeTrackId, nextSortOrder);
+            pt.setTrackPublicId(trackPublicId);
+        } else {
+            pt = new PlaylistTrack(
+                    dbId, trackPublicId,
+                    request.title() != null ? request.title() : "Track",
+                    request.artist() != null ? request.artist() : "Artist",
+                    request.album() != null ? request.album() : "",
+                    request.durationMs() != null ? request.durationMs() : 0L,
+                    request.audioUrl() != null ? request.audioUrl() : "",
+                    request.coverUrl() != null ? request.coverUrl() : "",
+                    nextSortOrder
+            );
+        }
+        playlistTrackRepository.save(pt);
+        return new SimpleSuccessResponse(true, "Track added to playlist");
+    }
+
+    @Transactional
+    public SimpleSuccessResponse removeTrackFromPlaylist(String id, String trackId) {
+        Playlist playlist = requireOwnedPlaylist(id);
+        Long dbId = playlist.getId();
+        playlistTrackRepository.deleteByPlaylistIdAndTrackPublicId(dbId, trackId);
+        Long nativeId = parseId(trackId, "tr_");
+        if (nativeId != null) {
+            playlistTrackRepository.findByPlaylistIdOrderBySortOrderAsc(dbId).stream()
+                    .filter(pt -> Objects.equals(pt.getTrackId(), nativeId))
+                    .forEach(playlistTrackRepository::delete);
+        }
+        return new SimpleSuccessResponse(true, "Track removed from playlist");
     }
 
     public ArtistDetailResponse artistDetail(String id) {
         Long dbId = parseId(id, "art_");
         Artist artist = dbId != null ? artistRepository.findById(dbId).orElse(null) : null;
-        if (artist == null && !artistRepository.findAll().isEmpty()) {
-            artist = artistRepository.findAll().get(0);
-        }
         if (artist == null) {
             return new ArtistDetailResponse(false, null, List.of(), List.of());
         }
@@ -271,10 +405,11 @@ public class CatalogService {
 
     public QueueResponse queue() {
         Set<String> liked = likedIds(currentUserKey());
-        List<TrackDto> all = trackRepository.findAll().stream().map(t -> toTrackDto(t, liked)).toList();
-        TrackDto now = all.isEmpty() ? null : all.get(0);
+        List<TrackDto> recent = trackRepository.findTop20ByOrderByIdDesc().stream()
+                .map(t -> toTrackDto(t, liked)).toList();
+        TrackDto now = recent.isEmpty() ? null : recent.get(0);
         String source = now != null && now.album() != null && !now.album().isBlank() ? now.album() : "Queue";
-        return new QueueResponse(true, now, all, source);
+        return new QueueResponse(true, now, recent, source);
     }
 
     @Transactional
@@ -354,9 +489,6 @@ public class CatalogService {
     public PodcastDetailResponse podcastDetail(String id) {
         Long dbId = parseId(id, "pod_");
         Podcast podcast = dbId != null ? podcastRepository.findById(dbId).orElse(null) : null;
-        if (podcast == null && !podcastRepository.findAll().isEmpty()) {
-            podcast = podcastRepository.findAll().get(0);
-        }
         if (podcast == null) {
             return new PodcastDetailResponse(false, null, List.of());
         }
@@ -394,14 +526,36 @@ public class CatalogService {
     public UserLibraryResponse library() {
         String userKey = currentUserKey();
         Set<String> liked = likedIds(userKey);
-        List<TrackDto> likedSongs = trackRepository.findAll().stream()
-                .filter(t -> liked.contains(t.publicId()))
-                .map(t -> toTrackDto(t, liked))
-                .toList();
-        if (likedSongs.isEmpty()) {
-            likedSongs = trackRepository.findAll().stream().limit(2).map(t -> toTrackDto(t, liked)).toList();
+        List<TrackDto> likedSongs = new ArrayList<>();
+        for (UserLibraryItem item : libraryItemRepository.findByUserKeyAndLikedTrue(userKey)) {
+            String tid = item.getTrackPublicId();
+            Long dbId = parseId(tid, "tr_");
+            if (dbId != null) {
+                Optional<Track> opt = trackRepository.findById(dbId);
+                if (opt.isPresent()) {
+                    likedSongs.add(toTrackDto(opt.get(), liked));
+                }
+            }
         }
-        return new UserLibraryResponse(true, likedSongs, albumRepository.findAll().stream().limit(3).map(this::toAlbumDto).toList());
+        List<PlaylistDto> userPlaylists = playlistRepository.findByUserKeyOrderByIdDesc(userKey).stream()
+                .map(this::toPlaylistDto).toList();
+        List<AlbumDto> savedAlbums = albumRepository.findAll().stream().limit(6).map(this::toAlbumDto).toList();
+        List<ArtistDto> followedArtists = artistRepository.findAll().stream().limit(6).map(this::toArtistDto).toList();
+        List<TrackDto> history = new ArrayList<>();
+        for (UserLibraryItem item : libraryItemRepository.findByUserKeyOrderByLastPlayedAtDesc(userKey)) {
+            if (history.size() >= 10) break;
+            Long dbId = parseId(item.getTrackPublicId(), "tr_");
+            if (dbId != null) {
+                Optional<Track> opt = trackRepository.findById(dbId);
+                if (opt.isPresent()) {
+                    history.add(toTrackDto(opt.get(), liked));
+                }
+            }
+        }
+
+        return new UserLibraryResponse(
+                true, userPlaylists, likedSongs, likedSongs.size(), savedAlbums, followedArtists, history
+        );
     }
 
     public UserProfileResponse profile() {
@@ -521,28 +675,141 @@ public class CatalogService {
         return new SimpleSuccessResponse(true, "Profile created successfully");
     }
 
+    public SearchCategoriesResponse searchCategories() {
+        List<BrowseCategoryDto> heroCategories = List.of(
+                new BrowseCategoryDto("hero_music", "Music", 0xFFE1336EL, "https://c.saavncdn.com/492/Chand-Mera-Dil-Hindi-2024-20241021111624-500x500.jpg", "Top Bollywood Songs"),
+                new BrowseCategoryDto("hero_podcasts", "Podcasts", 0xFF006450L, "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=300", "Top Podcasts"),
+                new BrowseCategoryDto("hero_events", "Live\nEvents", 0xFF7358FFL, "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300", "Live Concerts"),
+                new BrowseCategoryDto("hero_ipop", "Home of\nI-Pop", 0xFF1E3264L, "https://c.saavncdn.com/264/Love-Exit-Punjabi-2023-20230606132711-500x500.jpg", "Indian Pop Hits")
+        );
+
+        List<DiscoverTagDto> discoverTags = List.of(
+                new DiscoverTagDto("disc_1", "#hindipop", "Trending Hindi Pop", "https://c.saavncdn.com/492/Chand-Mera-Dil-Hindi-2024-20241021111624-500x500.jpg", "Hindi Pop"),
+                new DiscoverTagDto("disc_2", "#bollywood", "Bollywood Blockbusters", "https://c.saavncdn.com/712/Main-Vaapas-Aaunga-Hindi-2024-20240321154032-500x500.jpg", "Bollywood Hits"),
+                new DiscoverTagDto("disc_3", "#punjabi", "Punjabi Wave 2026", "https://c.saavncdn.com/264/Love-Exit-Punjabi-2023-20230606132711-500x500.jpg", "Punjabi Hits"),
+                new DiscoverTagDto("disc_4", "#lofi", "Midnight Hindi Lo-Fi", "https://c.saavncdn.com/602/Dooron-Dooron-Punjabi-2022-20220914180808-500x500.jpg", "Hindi Lo-Fi Chill"),
+                new DiscoverTagDto("disc_5", "#acoustic", "Peaceful Acoustic & Unplugged", "https://c.saavncdn.com/177/Barsaat-Lagdi-Ae-Hindi-2023-20230713123847-500x500.jpg", "Acoustic Hindi"),
+                new DiscoverTagDto("disc_6", "#workout", "High Voltage Gym Hits", "https://c.saavncdn.com/152/Jodi-Punjabi-2023-20230509183424-500x500.jpg", "Workout Hits")
+        );
+
+        List<BrowseCategoryDto> browseCategories = new ArrayList<>();
+        browseCategories.add(new BrowseCategoryDto("cat_made_for_you", "Made\nFor You", 0xFF8C67ACL, "https://c.saavncdn.com/001/Cocktail-2-Hindi-2024-20240214152011-500x500.jpg", "Made For You"));
+        browseCategories.add(new BrowseCategoryDto("cat_new_releases", "New\nReleases", 0xFFE8115BL, "https://c.saavncdn.com/712/Main-Vaapas-Aaunga-Hindi-2024-20240321154032-500x500.jpg", "Latest Hindi Releases"));
+        browseCategories.add(new BrowseCategoryDto("cat_hindi", "Hindi", 0xFFE91429L, "https://c.saavncdn.com/492/Chand-Mera-Dil-Hindi-2024-20241021111624-500x500.jpg", "Top Hindi Songs"));
+        browseCategories.add(new BrowseCategoryDto("cat_punjabi", "Punjabi", 0xFFB02897L, "https://c.saavncdn.com/264/Love-Exit-Punjabi-2023-20230606132711-500x500.jpg", "Top Punjabi Hits"));
+        browseCategories.add(new BrowseCategoryDto("cat_charts", "Charts", 0xFF8D67ABL, "https://c.saavncdn.com/832/Gully-Boy-Hindi-2019-20190124110321-500x500.jpg", "Top 50 India"));
+        browseCategories.add(new BrowseCategoryDto("cat_lofi", "Lo-Fi\nChill", 0xFF1E3264L, "https://c.saavncdn.com/602/Dooron-Dooron-Punjabi-2022-20220914180808-500x500.jpg", "Lo-Fi Beats"));
+        browseCategories.add(new BrowseCategoryDto("cat_party", "Party &\nDance", 0xFF503750L, "https://c.saavncdn.com/152/Jodi-Punjabi-2023-20230509183424-500x500.jpg", "Bollywood Party"));
+        browseCategories.add(new BrowseCategoryDto("cat_romance", "Romance", 0xFFE8115BL, "https://c.saavncdn.com/492/Chand-Mera-Dil-Hindi-2024-20241021111624-500x500.jpg", "Romantic Hindi Songs"));
+        browseCategories.add(new BrowseCategoryDto("cat_bhakti", "Devotional", 0xFF477D95L, "https://c.saavncdn.com/177/Barsaat-Lagdi-Ae-Hindi-2023-20230713123847-500x500.jpg", "Bhakti Songs"));
+        browseCategories.add(new BrowseCategoryDto("cat_workout", "Workout", 0xFF777777L, "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300", "Workout Motivation"));
+
+        return new SearchCategoriesResponse(true, heroCategories, discoverTags, browseCategories);
+    }
+
     public PremiumResponse premium() {
-        boolean isPremium = userRepository.findByEmail(currentUserKey()).map(User::isPremium).orElse(false);
+        String userKey = currentUserKey();
+        boolean isPremium = userRepository.findByEmail(userKey).map(User::isPremium).orElse(false);
+        String savedPlan = getPrefs("PREMIUM_PLAN").stream().findFirst().orElse("free");
+
         List<Map<String, Object>> plans = List.of(
-                Map.of("id", "individual", "name", "Individual", "price", "₹119/mo", "description", "1 account"),
-                Map.of("id", "duo", "name", "Duo", "price", "₹149/mo", "description", "2 accounts"),
-                Map.of("id", "family", "name", "Family", "price", "₹179/mo", "description", "Up to 6 accounts")
+                Map.of(
+                        "id", "individual",
+                        "name", "Individual",
+                        "price", "₹119",
+                        "period", "per month",
+                        "description", "1 Premium Account • Lossless 320kbps • Zero Ads • Unlimited Offline Downloads",
+                        "badge", "3 Months Free",
+                        "color1", "#6B3CE9",
+                        "color2", "#9825DD",
+                        "features", List.of("1 Premium account", "Ad-free music listening", "Download to listen offline", "Hi-Fi 24-bit Lossless streaming", "Cancel anytime")
+                ),
+                Map.of(
+                        "id", "duo",
+                        "name", "Duo",
+                        "price", "₹149",
+                        "period", "per month",
+                        "description", "2 Premium Accounts for couples or roommates sharing the same vibe",
+                        "badge", "Most Popular",
+                        "color1", "#E534B2",
+                        "color2", "#FF52C4",
+                        "features", List.of("2 Premium accounts", "Shared Duo Mix playlist", "Ad-free on both accounts", "Offline downloads on 10 devices", "High-Fidelity Audio")
+                ),
+                Map.of(
+                        "id", "family",
+                        "name", "Family",
+                        "price", "₹179",
+                        "period", "per month",
+                        "description", "Up to 6 Premium Accounts + Family Mix & Explicit Filter Controls",
+                        "badge", "Best Value",
+                        "color1", "#06B6D4",
+                        "color2", "#3B82F6",
+                        "features", List.of("6 Premium accounts", "Family Mix updated daily", "Block explicit music filter", "Individual saved libraries", "Spotify Connect & Cast")
+                ),
+                Map.of(
+                        "id", "student",
+                        "name", "Student",
+                        "price", "₹59",
+                        "period", "per month",
+                        "description", "Special 50% discount for verified college and university students",
+                        "badge", "Students Only",
+                        "color1", "#F59E0B",
+                        "color2", "#EF4444",
+                        "features", List.of("1 Verified student account", "50% off regular subscription", "Full ad-free experience", "Unlimited offline downloads", "Annual re-verification")
+                )
         );
+
         List<String> benefits = List.of(
-                "Ad-free listening", "Offline downloads", "Hi-Fi lossless audio",
-                "AI Signature mixes", "Unlimited skips"
+                "🎧 Hi-Fi Lossless 24-bit/192kHz Audio Streaming",
+                "🚫 100% Ad-Free Music Experience Across All Platforms",
+                "📥 Unlimited Offline Downloads on 5 Mobile & Tablet Devices",
+                "🤖 Unlimited Access to Sonexa AI DJ, Smart Vocal Remover & Equalizer DSP",
+                "🎨 Exclusive AI Playlist Cover Generator & Studio Creation Tools",
+                "⚡ Unlimited Track Skips & Zero Audio Compression"
         );
+
         return new PremiumResponse(true, isPremium, plans, benefits);
     }
 
     @Transactional
     public SimpleSuccessResponse subscribe(String planId) {
+        String effectivePlan = planId != null && !planId.isBlank() ? planId : "individual";
         userRepository.findByEmail(currentUserKey()).ifPresent(u -> {
             u.setPremium(true);
             userRepository.save(u);
         });
-        replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of(planId != null ? planId : "individual"));
-        return new SimpleSuccessResponse(true, "Subscribed to Sonexa Premium");
+        replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of(effectivePlan));
+        replacePrefs(currentUserKey(), "PREMIUM_EXPIRY", List.of(java.time.LocalDate.now().plusMonths(1).toString()));
+        return new SimpleSuccessResponse(true, "Successfully activated Sonexa Premium (" + effectivePlan + ")");
+    }
+
+    @Transactional
+    public RedeemCouponResponse redeemCoupon(String code) {
+        if (code == null || code.trim().isBlank()) {
+            return new RedeemCouponResponse(false, "Please enter a valid promo code", false, "");
+        }
+        String cleanCode = code.trim().toUpperCase();
+        List<String> validCodes = List.of("SONEXA2026", "VIPPASS", "FREE3M", "STUDENT50", "SONEXAPRO", "PREMIUM100");
+        if (validCodes.contains(cleanCode)) {
+            userRepository.findByEmail(currentUserKey()).ifPresent(u -> {
+                u.setPremium(true);
+                userRepository.save(u);
+            });
+            replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of("promo_" + cleanCode.toLowerCase()));
+            replacePrefs(currentUserKey(), "PREMIUM_EXPIRY", List.of(java.time.LocalDate.now().plusMonths(3).toString()));
+            return new RedeemCouponResponse(true, "Promo code " + cleanCode + " applied! You unlocked 3 Months of Sonexa VIP Premium.", true, "VIP Promo (" + cleanCode + ")");
+        }
+        return new RedeemCouponResponse(false, "Invalid promo code. Try 'SONEXA2026' or 'VIPPASS'.", false, "");
+    }
+
+    @Transactional
+    public SimpleSuccessResponse cancelSubscription() {
+        userRepository.findByEmail(currentUserKey()).ifPresent(u -> {
+            u.setPremium(false);
+            userRepository.save(u);
+        });
+        replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of("free"));
+        return new SimpleSuccessResponse(true, "Premium subscription cancelled. You will continue on the Free tier.");
     }
 
     public SettingsResponse settings() {
@@ -651,7 +918,7 @@ public class CatalogService {
         List<TrackDto> recs = trackRepository.findAll().stream().limit(4).map(t -> toTrackDto(t, liked)).toList();
         return new AiSignatureResponse(true, "ai_sig_" + System.currentTimeMillis(),
                 "AI Signature: " + mood.toUpperCase() + " VIBE",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+                "",
                 128, "F# Minor", recs);
     }
 

@@ -1,15 +1,12 @@
 package com.sonexa.backend.controller;
 
 import com.sonexa.backend.model.dto.ApiResponse;
-import com.sonexa.backend.model.dto.CatalogDtos.ArtistDto;
-import com.sonexa.backend.model.dto.CatalogDtos.PlaylistDto;
-import com.sonexa.backend.model.dto.CatalogDtos.TrackDto;
+import com.sonexa.backend.model.dto.CatalogDtos.*;
+import com.sonexa.backend.service.CatalogService;
 import com.sonexa.backend.service.audius.AudiusService;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -17,9 +14,16 @@ import java.util.Map;
 public class SearchController {
 
     private final AudiusService audiusService;
+    private final CatalogService catalogService;
 
-    public SearchController(AudiusService audiusService) {
+    public SearchController(AudiusService audiusService, CatalogService catalogService) {
         this.audiusService = audiusService;
+        this.catalogService = catalogService;
+    }
+
+    @GetMapping("/categories")
+    public SearchCategoriesResponse categories() {
+        return catalogService.searchCategories();
     }
 
     @GetMapping
@@ -29,18 +33,30 @@ public class SearchController {
             @RequestParam(value = "limit", defaultValue = "30") int limit
     ) {
         String trimmed = query.trim();
-        List<TrackDto> tracks = Collections.emptyList();
-        List<ArtistDto> artists = Collections.emptyList();
-        List<PlaylistDto> playlists = Collections.emptyList();
+        SearchResponse nativeResults = catalogService.search(trimmed);
 
-        if (type.equalsIgnoreCase("all") || type.equalsIgnoreCase("tracks") || type.equalsIgnoreCase("songs")) {
-            tracks = audiusService.searchTracks(trimmed, limit);
+        List<TrackDto> tracks = new ArrayList<>(nativeResults.tracks() != null ? nativeResults.tracks() : List.of());
+        List<AlbumDto> albums = new ArrayList<>(nativeResults.albums() != null ? nativeResults.albums() : List.of());
+        List<ArtistDto> artists = new ArrayList<>();
+        List<PlaylistDto> playlists = new ArrayList<>();
+
+        if (tracks.isEmpty() || type.equalsIgnoreCase("tracks")) {
+            try {
+                List<TrackDto> audiusTracks = audiusService.searchTracks(trimmed, limit);
+                tracks.addAll(audiusTracks);
+            } catch (Exception ignored) {}
         }
+
         if (type.equalsIgnoreCase("all") || type.equalsIgnoreCase("artists")) {
-            artists = audiusService.searchArtists(trimmed, 8);
+            try {
+                artists.addAll(audiusService.searchArtists(trimmed, 8));
+            } catch (Exception ignored) {}
         }
-        if (type.equalsIgnoreCase("all") || type.equalsIgnoreCase("playlists") || type.equalsIgnoreCase("albums")) {
-            playlists = audiusService.searchPlaylists(trimmed, 8);
+
+        if (type.equalsIgnoreCase("all") || type.equalsIgnoreCase("playlists")) {
+            try {
+                playlists.addAll(audiusService.searchPlaylists(trimmed, 8));
+            } catch (Exception ignored) {}
         }
 
         Map<String, Object> result = Map.of(
@@ -48,7 +64,7 @@ public class SearchController {
                 "tracks", tracks,
                 "artists", artists,
                 "playlists", playlists,
-                "albums", Collections.emptyList()
+                "albums", albums
         );
 
         return ApiResponse.success(result);

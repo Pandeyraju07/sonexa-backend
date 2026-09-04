@@ -37,13 +37,13 @@ public class EmailServiceImpl implements EmailService {
                 : "Sonexa verification OTP (valid 1 minute)";
         String htmlContent = buildHtmlEmailContent(otpCode, purpose, recipient);
 
-        log.info("event=SENDING_GMAIL_OTP to={} purpose={} otp={}", recipient, purpose, otpCode);
+        log.info("event=SENDING_GMAIL_OTP to={} purpose={}", recipient, purpose);
 
         String senderUser = smtpUsername == null ? "" : smtpUsername.trim();
         String senderPass = smtpPassword == null ? "" : smtpPassword.trim().replace(" ", "");
 
         if (mailSender == null || senderUser.isBlank() || senderPass.isBlank()) {
-            log.warn("event=OTP_EMAIL_SKIPPED_NO_SMTP_SENDER to={} otp={}", recipient, otpCode);
+            log.warn("event=OTP_EMAIL_SKIPPED_NO_SMTP_SENDER to={}", recipient);
             if (requireDelivery) {
                 throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED,
                         "Email SMTP sender is not configured. Set SONEXA_MAIL_USERNAME / SONEXA_MAIL_PASSWORD or application-local.properties.");
@@ -75,7 +75,7 @@ public class EmailServiceImpl implements EmailService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("event=GMAIL_OTP_SEND_FAILED to={} otp={} error={}", recipient, otpCode, e.getMessage(), e);
+            log.error("event=GMAIL_OTP_SEND_FAILED to={} error={}", recipient, e.getMessage(), e);
             if (requireDelivery) {
                 throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED,
                         "Unable to send OTP email to " + recipient + ". Check SMTP App Password.");

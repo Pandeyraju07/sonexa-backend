@@ -11,6 +11,7 @@ import com.sonexa.backend.util.JwtUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private Environment environment;
+
+    private boolean isProd() {
+        return java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+    }
 
     @Override
     @Transactional
@@ -74,14 +82,18 @@ public class AuthServiceImpl implements AuthService {
         String otpCode = generateOtpCode();
         saveOtpCode(user.getEmail(), otpCode, "REGISTER");
         boolean emailDelivered = emailService.sendOtpEmail(user.getEmail(), otpCode, "REGISTER");
+        if (!emailDelivered && isProd()) {
+            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED,
+                    "Could not send verification email. Please try again.");
+        }
+        if (!emailDelivered) {
+            log.warn("event=OTP_EMAIL_NOT_DELIVERED_DEV userId={}", user.getId());
+        }
 
-        String accessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getId(), user.getRole());
-        String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getId(), user.getRole());
+        log.info("event=USER_REGISTERED_SUCCESS userId={} email={} emailDelivered={}",
+                user.getId(), user.getEmail(), emailDelivered);
 
-        log.info("event=USER_REGISTERED_SUCCESS userId={} email={} emailDelivered={} otp={}",
-                user.getId(), user.getEmail(), emailDelivered, otpCode);
-
-        return new AuthResponseData(accessToken, refreshToken, mapToUserProfile(user), true, otpCode, emailDelivered);
+        return new AuthResponseData(null, null, mapToUserProfile(user), true, null, emailDelivered);
     }
 
     @Override
@@ -96,6 +108,10 @@ public class AuthServiceImpl implements AuthService {
             if (!passwordEncoder.matches(request.password(), user.getPassword())) {
                 throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password");
             }
+        }
+
+        if ("LOCAL".equalsIgnoreCase(user.getProvider()) && !user.isEmailVerified()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Please verify your email before signing in");
         }
 
         String accessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getId(), user.getRole());
@@ -144,7 +160,11 @@ public class AuthServiceImpl implements AuthService {
         String otpCode = generateOtpCode();
         saveOtpCode(email, otpCode, purpose);
         boolean emailDelivered = emailService.sendOtpEmail(email, otpCode, purpose);
-        return new OtpSendData(otpCode, emailDelivered);
+        if (!emailDelivered && isProd()) {
+            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED,
+                    "Could not send verification email. Please try again.");
+        }
+        return new OtpSendData(null, emailDelivered);
     }
 
     @Override
@@ -195,13 +215,15 @@ public class AuthServiceImpl implements AuthService {
         String email = request.email().trim().toLowerCase();
         log.info("event=FORGOT_PASSWORD_REQUEST email={}", email);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "No account registered with email " + email));
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            log.info("event=FORGOT_PASSWORD_UNKNOWN_EMAIL");
+            return;
+        }
 
         String otpCode = generateOtpCode();
         saveOtpCode(user.getEmail(), otpCode, "FORGOT_PASSWORD");
         emailService.sendOtpEmail(user.getEmail(), otpCode, "FORGOT_PASSWORD");
-        // OTP is logged by EmailService; client can call send-otp if needed
     }
 
     @Override
@@ -296,9 +318,10 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "User not found for refresh token"));
 
-            if (jwtUtils.validateToken(request.refreshToken(), email)) {
+            if (jwtUtils.validateToken(request.refreshToken(), email) && jwtUtils.isRefreshToken(request.refreshToken())) {
                 String newAccessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getId(), user.getRole());
-                return new AuthResponseData(newAccessToken, request.refreshToken(), mapToUserProfile(user), false);
+                String newRefreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getId(), user.getRole());
+                return new AuthResponseData(newAccessToken, newRefreshToken, mapToUserProfile(user), false);
             } else {
                 throw new BusinessException(ErrorCode.EXPIRED_TOKEN, "Refresh token is expired");
             }
@@ -309,19 +332,27 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(String email) {
-        log.info("event=LOGOUT_SUCCESS email={}", email);
+        log.info("event=LOGOUT_SUCCESS");
     }
 
     @Override
     @Transactional
-    public void deleteAccount(String userId) {
-        log.info("event=DELETE_ACCOUNT userId={}", userId);
-        try {
-            Long id = Long.parseLong(userId.replace("usr_", ""));
-            userRepository.deleteById(id);
-        } catch (Exception e) {
-            log.warn("event=DELETE_ACCOUNT_FAILED userId={} error={}", userId, e.getMessage());
+    public void deleteAccount(String ignoredClientUserId) {
+        deleteCurrentUser();
+    }
+
+    @Transactional
+    public void deleteCurrentUser() {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(String.valueOf(auth.getPrincipal()))) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Authentication required");
         }
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "User not found"));
+        log.info("event=DELETE_ACCOUNT userId={}", user.getId());
+        userRepository.delete(user);
     }
 
     private static final int OTP_VALIDITY_MINUTES = 1;

@@ -31,7 +31,15 @@ public class GlobalExceptionHandler {
         log.warn("event=BUSINESS_EXCEPTION errorCode={} message={}",
                 ex.getErrorCode().getCode(), ex.getMessage());
 
-        return jsonResponse(HttpStatus.BAD_REQUEST)
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case UNAUTHORIZED, INVALID_CREDENTIALS, EXPIRED_TOKEN, INVALID_TOKEN -> HttpStatus.UNAUTHORIZED;
+            case FORBIDDEN -> HttpStatus.FORBIDDEN;
+            case RESOURCE_NOT_FOUND, USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+
+        return jsonResponse(status)
                 .body(ResponseUtil.failure(ex.getErrorCode(), ex.getMessage(), null));
     }
 
