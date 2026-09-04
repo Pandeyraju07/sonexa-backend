@@ -8,9 +8,7 @@ services:
     healthCheckPath: /api/v1/health/live
     envVars:
       - key: SPRING_PROFILES_ACTIVE
-        value: prod
-      - key: SERVER_PORT
-        value: 8080
+        value: cloud
       - key: JWT_SECRET
         generateValue: true
       - key: SPRING_DATASOURCE_URL
@@ -20,6 +18,6 @@ services:
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
       - key: SONEXA_MEDIA_PUBLIC_BASE_URL
-        value: https://sonexa-backend.onrender.com
+        value: https://zynera-backend.onrender.com
       - key: SONEXA_CORS_ORIGINS
         value: https://zynera.app,https://www.zynera.app
