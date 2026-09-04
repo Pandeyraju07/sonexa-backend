@@ -91,7 +91,7 @@ public class DataSeeder implements ApplicationRunner {
         User admin = new User();
         admin.setEmail(adminEmail);
         admin.setPassword(passwordEncoder.encode("Admin@123"));
-        admin.setName("Sonexa Admin");
+        admin.setName("Zynera Admin");
         admin.setProvider("LOCAL");
         admin.setEmailVerified(true);
         admin.setEnabled(true);
@@ -181,7 +181,7 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedPodcasts() {
         Podcast tech = podcastRepository.save(new Podcast(
-                "Sonexa Tech Talks", "Maya Chen",
+                "Zynera Tech Talks", "Maya Chen",
                 "Deep dives into music tech, AI curation and lossless audio.",
                 COVER, "Technology"));
         Podcast culture = podcastRepository.save(new Podcast(
@@ -203,7 +203,7 @@ public class DataSeeder implements ApplicationRunner {
                 "global", "AI Mix Ready", "Your Weekly AI Signature mix is ready to play.",
                 "auto_awesome", "#8B5CF6", "1h ago"));
         notificationRepository.save(new AppNotification(
-                "global", "Premium Offer", "Get 2 months of Sonexa Premium for free.",
+                "global", "Premium Offer", "Get 2 months of Zynera Premium for free.",
                 "workspace_premium", "#F59E0B", "Yesterday"));
         notificationRepository.save(new AppNotification(
                 "global", "Friend Activity", "Yash started following The Weeknd.",

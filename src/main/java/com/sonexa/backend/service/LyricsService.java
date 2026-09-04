@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 /**
  * Automatic lyrics lookup similar to Spotify's flow (metadata match → synced LRC).
- * Spotify uses licensed Musixmatch/LyricFind; Sonexa uses LRCLIB for free synced lyrics,
+ * Spotify uses licensed Musixmatch/LyricFind; Zynera uses LRCLIB for free synced lyrics,
  * with optional Musixmatch when {@code sonexa.lyrics.musixmatch-apikey} is set.
  */
 @Service
@@ -242,7 +242,7 @@ public class LyricsService {
 
     private JsonNode getJson(URI uri) throws Exception {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", "SonexaApp/2.4 (lyrics; +https://sonexa.app)");
+        headers.set("User-Agent", "ZyneraApp/2.4 (lyrics; +https://zynera.app)");
         headers.set("Accept", "application/json");
         try {
             ResponseEntity<String> response = restTemplate.exchange(

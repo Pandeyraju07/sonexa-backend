@@ -35,7 +35,7 @@ public class SecurityConfig {
     private final Environment environment;
     private final ObjectMapper objectMapper;
 
-    @Value("${sonexa.cors.allowed-origins:https://sonexa.app,https://www.sonexa.app}")
+    @Value("${sonexa.cors.allowed-origins:https://zynera.app,https://www.zynera.app,https://sonexa.app,https://www.sonexa.app}")
     private String allowedOrigins;
 
     public SecurityConfig(
