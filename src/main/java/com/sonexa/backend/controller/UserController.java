@@ -26,7 +26,7 @@ public class UserController {
 
     @PutMapping("/profile")
     public SimpleSuccessResponse updateProfile(@RequestBody UpdateProfileRequest body) {
-        return catalogService.updateProfile(body != null ? body : new UpdateProfileRequest(null, null, null));
+        return catalogService.updateProfile(body != null ? body : new UpdateProfileRequest(null, null, null, null));
     }
 
     @GetMapping("/library")
