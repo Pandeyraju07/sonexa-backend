@@ -558,6 +558,11 @@ public class CatalogService {
         );
     }
 
+    private String defaultAvatarUrl(String name, String email) {
+        String seed = (name != null && !name.isBlank()) ? name.trim() : (email != null && email.contains("@") ? email.substring(0, email.indexOf("@")) : "Zynera");
+        return "https://api.dicebear.com/7.x/initials/svg?seed=" + java.net.URLEncoder.encode(seed, java.nio.charset.StandardCharsets.UTF_8) + "&backgroundColor=6b3ce9,e534b2,38bdf8&textColor=ffffff";
+    }
+
     public UserProfileResponse profile() {
         String userKey = currentUserKey();
         Map<String, Object> user = new LinkedHashMap<>();
@@ -565,10 +570,9 @@ public class CatalogService {
         if (dbUser.isPresent()) {
             User u = dbUser.get();
             user.put("id", "usr_" + u.getId());
-            user.put("name", u.getName() != null ? u.getName() : "Sonexa Listener");
-            user.put("email", u.getEmail());
-            user.put("profilePicUrl", u.getProfilePicUrl() != null ? u.getProfilePicUrl()
-                    : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300");
+            String displayName = (u.getName() != null && !u.getName().isBlank()) ? u.getName() : (u.getEmail() != null && u.getEmail().contains("@") ? u.getEmail().substring(0, u.getEmail().indexOf("@")) : "Zynera Listener");
+            user.put("name", displayName);
+            user.put("profilePicUrl", u.getProfilePicUrl() != null && !u.getProfilePicUrl().isBlank() ? u.getProfilePicUrl() : defaultAvatarUrl(displayName, u.getEmail()));
             user.put("isPremium", u.isPremium());
             user.put("isEmailVerified", u.isEmailVerified());
             user.put("followersCount", u.getFollowersCount());
