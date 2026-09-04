@@ -44,6 +44,17 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private Environment environment;
 
+    private String defaultAvatarUrl(String name, String email) {
+        String seed = (name != null && !name.isBlank()) ? name.trim() : (email != null && email.contains("@") ? email.substring(0, email.indexOf("@")) : "Zynera");
+        return "https://api.dicebear.com/7.x/initials/svg?seed=" + java.net.URLEncoder.encode(seed, java.nio.charset.StandardCharsets.UTF_8) + "&backgroundColor=6b3ce9,e534b2,38bdf8&textColor=ffffff";
+    }
+
+    private String defaultDisplayName(String name, String email) {
+        if (name != null && !name.isBlank()) return name.trim();
+        if (email != null && email.contains("@")) return email.substring(0, email.indexOf("@"));
+        return "Zynera Listener";
+    }
+
     private boolean isProd() {
         return java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
     }
@@ -75,7 +86,7 @@ public class AuthServiceImpl implements AuthService {
             user.setProvider("LOCAL");
             user.setEmailVerified(false);
             user.setRole("USER");
-            user.setProfilePicUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300");
+            user.setProfilePicUrl(defaultAvatarUrl(request.name(), email));
             user = userRepository.save(user);
         }
 
@@ -381,9 +392,9 @@ public class AuthServiceImpl implements AuthService {
     private UserProfileData mapToUserProfile(User user) {
         return new UserProfileData(
                 "usr_" + user.getId(),
-                user.getName() != null ? user.getName() : "Sonexa Listener",
+                defaultDisplayName(user.getName(), user.getEmail()),
                 user.getEmail(),
-                user.getProfilePicUrl() != null ? user.getProfilePicUrl() : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300",
+                user.getProfilePicUrl() != null && !user.getProfilePicUrl().isBlank() ? user.getProfilePicUrl() : defaultAvatarUrl(user.getName(), user.getEmail()),
                 user.isPremium(),
                 user.isEmailVerified(),
                 user.getFollowersCount(),

@@ -35,11 +35,11 @@ public class ProfileSetupController {
     @PostMapping("/create")
     public Map<String, Object> create(@RequestBody ProfileCreateRequest body) {
         SimpleSuccessResponse result = catalogService.createProfile(
-                body != null ? body : new ProfileCreateRequest("Sonexa Listener", "@sonexa_user"));
+                body != null ? body : new ProfileCreateRequest("Zynera Listener", "@zynera_user"));
         return Map.of(
                 "success", result.success(),
                 "message", result.message(),
-                "handle", body != null && body.handle() != null ? body.handle() : "@sonexa_user"
+                "handle", body != null && body.handle() != null ? body.handle() : "@zynera_user"
         );
     }
 
