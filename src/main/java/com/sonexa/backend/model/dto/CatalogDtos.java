@@ -33,7 +33,42 @@ public final class CatalogDtos {
     ) {}
 
     public record PlaylistDto(
-            String id, String title, String subtitle, String artworkType, String coverUrl
+            String id, String title, String subtitle, String artworkType, String coverUrl,
+            int trackCount, String creatorName, boolean isUserCreated, boolean isPinned
+    ) {
+        public PlaylistDto(String id, String title, String subtitle, String artworkType, String coverUrl) {
+            this(id, title, subtitle, artworkType, coverUrl, 0, "Sonexa", false, false);
+        }
+    }
+
+    public record CreatePlaylistRequest(
+            String title,
+            String description,
+            String coverUrl,
+            Boolean isPrivate
+    ) {}
+
+    public record UpdatePlaylistRequest(
+            String title,
+            String description,
+            String coverUrl,
+            Boolean isPrivate,
+            Boolean isPinned
+    ) {}
+
+    public record AddTrackToPlaylistRequest(
+            String trackId,
+            String title,
+            String artist,
+            String album,
+            Long durationMs,
+            String audioUrl,
+            String coverUrl
+    ) {}
+
+    public record UserPlaylistsResponse(
+            boolean success,
+            List<PlaylistDto> playlists
     ) {}
 
     public record ArtistDto(
@@ -166,7 +201,20 @@ public final class CatalogDtos {
 
     public record UserProfileResponse(boolean success, Map<String, Object> user) {}
 
-    public record UserLibraryResponse(boolean success, List<TrackDto> likedSongs, List<AlbumDto> savedAlbums) {}
+    public record UserLibraryResponse(
+            boolean success,
+            List<PlaylistDto> playlists,
+            List<TrackDto> likedSongs,
+            int likedCount,
+            List<AlbumDto> savedAlbums,
+            List<ArtistDto> followedArtists,
+            List<TrackDto> recentHistory
+    ) {
+        public UserLibraryResponse(boolean success, List<TrackDto> likedSongs, List<AlbumDto> savedAlbums) {
+            this(success, Collections.emptyList(), likedSongs, likedSongs != null ? likedSongs.size() : 0,
+                 savedAlbums, Collections.emptyList(), Collections.emptyList());
+        }
+    }
 
     public record ToggleLikeResponse(boolean success, String trackId, boolean isLiked, String message) {}
 
@@ -328,4 +376,21 @@ public final class CatalogDtos {
             List<IPopArtistDto> spotlightArtists,
             List<TrackDto> newReleases
     ) {}
+
+    public record BrowseCategoryDto(String id, String title, long colorHex, String imageUrl, String query) {}
+    public record DiscoverTagDto(String id, String tag, String title, String imageUrl, String query) {}
+    public record SearchCategoriesResponse(
+            boolean success,
+            List<BrowseCategoryDto> heroCategories,
+            List<DiscoverTagDto> discoverTags,
+            List<BrowseCategoryDto> browseCategories
+    ) {}
+
+    public record PremiumPlanDto(
+            String id, String name, String price, String period, String description,
+            String badge, String color1, String color2, List<String> features
+    ) {}
+
+    public record RedeemCouponRequest(String code) {}
+    public record RedeemCouponResponse(boolean success, String message, boolean isPremium, String planName) {}
 }

@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/music")
-@CrossOrigin(origins = "*")
 public class MusicController {
 
     private final CatalogService catalogService;

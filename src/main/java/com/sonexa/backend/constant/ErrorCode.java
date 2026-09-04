@@ -7,6 +7,7 @@ public enum ErrorCode {
     UNAUTHORIZED("ERR_40102", "Unauthorized access"),
     EXPIRED_TOKEN("ERR_40103", "Token has expired"),
     INVALID_TOKEN("ERR_40104", "Invalid token signature or structure"),
+    FORBIDDEN("ERR_40301", "Access denied"),
     USER_NOT_FOUND("ERR_40401", "User account not found"),
     RESOURCE_NOT_FOUND("ERR_40402", "Requested resource not found"),
     EMAIL_ALREADY_EXISTS("ERR_40901", "An account with this email already exists"),

@@ -1,14 +1,19 @@
-FROM eclipse-temurin:17-jdk-jammy AS build
-WORKDIR /app
-COPY pom.xml mvnw ./
-COPY .mvn .mvn
-RUN chmod +x ./mvnw && ./mvnw dependency:go-offline -B
-COPY src src
-RUN ./mvnw clean package -DskipTests
+FROM eclipse-temurin:17-jre-alpine
 
-FROM eclipse-temurin:17-jre-jammy
+RUN addgroup -S sonexa && adduser -S sonexa -G sonexa \
+    && apk add --no-cache wget
+
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
-ENV PORT=8080
+
+COPY target/*.jar app.jar
+
+RUN mkdir -p /app/uploads && chown -R sonexa:sonexa /app
+
+USER sonexa
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-Dserver.port=", "-jar", "app.jar"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD wget -qO- http://localhost:8080/api/v1/health/live || exit 1
+
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
