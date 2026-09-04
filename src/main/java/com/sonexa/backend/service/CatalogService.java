@@ -575,9 +575,9 @@ public class CatalogService {
             user.put("followingCount", u.getFollowingCount());
         } else {
             user.put("id", "usr_guest");
-            user.put("name", "Sonexa Listener");
-            user.put("email", userKey.equals("guest") ? "guest@sonexa.ai" : userKey);
-            user.put("profilePicUrl", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300");
+            user.put("name", userKey.contains("@") ? userKey.substring(0, userKey.indexOf("@")) : "Zynera Listener");
+            user.put("email", userKey.equals("guest") ? "guest@zynera.app" : userKey);
+            user.put("profilePicUrl", "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300");
             user.put("isPremium", false);
             user.put("isEmailVerified", false);
             user.put("followersCount", 0);
