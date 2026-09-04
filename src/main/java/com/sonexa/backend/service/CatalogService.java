@@ -767,7 +767,7 @@ public class CatalogService {
                 "🎧 Hi-Fi Lossless 24-bit/192kHz Audio Streaming",
                 "🚫 100% Ad-Free Music Experience Across All Platforms",
                 "📥 Unlimited Offline Downloads on 5 Mobile & Tablet Devices",
-                "🤖 Unlimited Access to Sonexa AI DJ, Smart Vocal Remover & Equalizer DSP",
+                "🤖 Unlimited Access to Zynera AI DJ, Smart Vocal Remover & Equalizer DSP",
                 "🎨 Exclusive AI Playlist Cover Generator & Studio Creation Tools",
                 "⚡ Unlimited Track Skips & Zero Audio Compression"
         );
@@ -784,7 +784,7 @@ public class CatalogService {
         });
         replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of(effectivePlan));
         replacePrefs(currentUserKey(), "PREMIUM_EXPIRY", List.of(java.time.LocalDate.now().plusMonths(1).toString()));
-        return new SimpleSuccessResponse(true, "Successfully activated Sonexa Premium (" + effectivePlan + ")");
+        return new SimpleSuccessResponse(true, "Successfully activated Zynera Premium (" + effectivePlan + ")");
     }
 
     @Transactional
@@ -793,7 +793,7 @@ public class CatalogService {
             return new RedeemCouponResponse(false, "Please enter a valid promo code", false, "");
         }
         String cleanCode = code.trim().toUpperCase();
-        List<String> validCodes = List.of("SONEXA2026", "VIPPASS", "FREE3M", "STUDENT50", "SONEXAPRO", "PREMIUM100");
+        List<String> validCodes = List.of("ZYNERA2026", "SONEXA2026", "VIPPASS", "FREE3M", "STUDENT50", "ZYNERAPRO", "SONEXAPRO", "PREMIUM100");
         if (validCodes.contains(cleanCode)) {
             userRepository.findByEmail(currentUserKey()).ifPresent(u -> {
                 u.setPremium(true);
@@ -801,9 +801,9 @@ public class CatalogService {
             });
             replacePrefs(currentUserKey(), "PREMIUM_PLAN", List.of("promo_" + cleanCode.toLowerCase()));
             replacePrefs(currentUserKey(), "PREMIUM_EXPIRY", List.of(java.time.LocalDate.now().plusMonths(3).toString()));
-            return new RedeemCouponResponse(true, "Promo code " + cleanCode + " applied! You unlocked 3 Months of Sonexa VIP Premium.", true, "VIP Promo (" + cleanCode + ")");
+            return new RedeemCouponResponse(true, "Promo code " + cleanCode + " applied! You unlocked 3 Months of Zynera VIP Premium.", true, "VIP Promo (" + cleanCode + ")");
         }
-        return new RedeemCouponResponse(false, "Invalid promo code. Try 'SONEXA2026' or 'VIPPASS'.", false, "");
+        return new RedeemCouponResponse(false, "Invalid promo code. Try 'ZYNERA2026' or 'VIPPASS'.", false, "");
     }
 
     @Transactional
@@ -885,7 +885,7 @@ public class CatalogService {
         settings.put("friendActivity", true);
         settings.put("newReleaseAlerts", true);
         settings.put("aiSensitivity", "High");
-        settings.put("aiVoiceModel", "Sonexa Voice v2.4");
+        settings.put("aiVoiceModel", "Zynera Voice v2.4");
         settings.put("smartLyrics", true);
         settings.put("dataSharing", false);
         settings.put("twoFactorEnabled", false);
@@ -929,6 +929,6 @@ public class CatalogService {
     public AiChatResponse aiChat(AiChatRequest request) {
         String msg = request != null && request.message() != null ? request.message() : "";
         return new AiChatResponse(true,
-                "Sonexa AI: Based on \"" + msg + "\", try a chill lo-fi mix or Energy Boost playlist.");
+                "Zynera AI: Based on \"" + msg + "\", try a chill lo-fi mix or Energy Boost playlist.");
     }
 }

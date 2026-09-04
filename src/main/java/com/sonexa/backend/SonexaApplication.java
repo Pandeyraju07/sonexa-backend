@@ -9,7 +9,7 @@ public class SonexaApplication {
     public static void main(String[] args) {
         SpringApplication.run(SonexaApplication.class, args);
         System.out.println("=================================================");
-        System.out.println("Sonexa Spring Boot REST API Server Running on http://localhost:8080");
+        System.out.println("Zynera Spring Boot REST API Server Running on http://localhost:8080");
         System.out.println("=================================================");
     }
 }

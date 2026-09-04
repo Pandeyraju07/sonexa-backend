@@ -13,7 +13,7 @@ public class RootController {
     public Map<String, Object> root() {
         return Map.of(
                 "success", true,
-                "message", "Sonexa AI Music API is running",
+                "message", "Zynera AI Music API is running",
                 "version", "1.0.0",
                 "status", "UP",
                 "timestamp", LocalDateTime.now().toString()

@@ -203,7 +203,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(email);
-            newUser.setName("Sonexa Listener");
+            newUser.setName("Zynera Listener");
             newUser.setProvider("LOCAL");
             newUser.setProfilePicUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300");
             return newUser;

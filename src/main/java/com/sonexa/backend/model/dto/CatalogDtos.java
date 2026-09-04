@@ -37,7 +37,7 @@ public final class CatalogDtos {
             int trackCount, String creatorName, boolean isUserCreated, boolean isPinned
     ) {
         public PlaylistDto(String id, String title, String subtitle, String artworkType, String coverUrl) {
-            this(id, title, subtitle, artworkType, coverUrl, 0, "Sonexa", false, false);
+            this(id, title, subtitle, artworkType, coverUrl, 0, "Zynera", false, false);
         }
     }
 
